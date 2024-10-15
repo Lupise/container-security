@@ -1,0 +1,4 @@
+.dockerignore
+Dockerfile
+distroless-pod.yml
+README.md

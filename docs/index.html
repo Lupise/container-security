@@ -1,0 +1,548 @@
+<!doctype html>
+<!--suppress HtmlFormInputWithoutLabel -->
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>Container & Security</title>
+
+    <link rel="stylesheet" href="dist/reset.css">
+    <link rel="stylesheet" href="dist/reveal.css">
+    <link rel="stylesheet" href="dist/theme/lupise-black.css">
+
+    <!-- Theme used for syntax highlighting of code -->
+    <link rel="stylesheet" href="plugin/highlight/monokai.css">
+</head>
+
+<body>
+<div class="reveal">
+    <div class="slides">
+        <section>
+            <h1>Container & Security</h1>
+            <p>By <a href="https://www.linkedin.com/in/s%C3%A9bastien-baillet-0b20b19a/">Sébastien Baillet</a> From <br><a href="https://www.lupise.fr"><img src="./images/Lupise-01.png" style="border: 0; width: 200px;vertical-align: bottom" alt="Lupise"></a></p>
+        </section>
+
+        <section id="introduction">
+            <section>
+                <span class="cursor">
+                    <h2><span style="color:#0cbb1e">$</span> whoami</h2>
+                </span>
+            </section>
+
+            <section>
+                <h3>Cloud risks</h3>
+                <img src="images/shared-cloud-risk.gif" style="border:0" alt="shared cloud risks">
+            </section>
+
+            <!-- Summary -->
+            <section>
+                <h2>Summary</h2>
+                <ul>
+                    <li class="fragment"><a href="#/good-practices">Good practices</a></li>
+                    <li class="fragment"><a href="#/howto-work">How to work with hardened images</a></li>
+                    <li class="fragment"><a href="#/patch-management">What about patch management</a></li>
+                    <li class="fragment"><a href="#/some-tools">Some tools</a></li>
+                </ul>
+            </section>
+        </section>
+
+        <!-- Good practices -->
+        <section id="good-practices">
+            <h2>Container use and images creation good practices</h2>
+        </section>
+
+        <section>
+            <h2>Containers <span style="color:darkred">must not</span> run as root</h2>
+            <p>To prevent the possibility to escape as root, containers must not be executed as root.</p>
+        </section>
+
+        <section>
+            <section>
+                <h2>Containers <span style="color:darkred">must</span> only have the strictly minimum capabilities</h2>
+                <p>A container should be started only with strictly minimum capabilities for it to run.</p>
+            </section>
+
+            <section>
+                <h2>Capabilities...?</h2>
+                <img src="images/The%20good.webp" alt="Before capabilities, the world was divided in 2 parts...">
+            </section>
+
+            <section>
+                <h2>Capabilities...?</h2>
+                <p>Each privileged operation is associated with a capability</p>
+            </section>
+
+            <section data-markdown>
+                    <textarea data-template>
+                        ## Capabilities...?
+
+                        |Name|Description|
+                        |----|-----------|
+                        |SETUID|Make arbitrary manipulations of process UIDs|
+                        |SETGID|Make arbitrary manipulations of process GIDs and supplementary GID list|
+                        |NET_BIND_SERVICE|Bind a socket to internet domain privileged ports|
+                    </textarea>
+            </section>
+
+            <section data-markdown>
+                    <textarea data-template>
+                        ## Capabilities...?
+
+                        |Name|Description|
+                        |----|-----------|
+                        |SETPCAP|Modify process capabilities|
+                        |SETFCAP|Set file capabilities|
+                        |NET_RAW|Use RAW and PACKET sockets|
+                    </textarea>
+            </section>
+
+            <section>
+                <h2>Capabilities Demos</h2>
+                <h3>With NET_BIND_SERVICE capability</h3>
+            </section>
+            <section data-background-video="videos/demo-capabilities.mp4" data-background-size="contain">
+            </section>
+
+            <section>
+                <h2>Container engine & capabilities</h2>
+                <p>Docker engine starts container with default capabilities described in <a href="https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities">Docker documentation</a>.</p>
+                <p>This default list may be overloaded in Docker daemon configuration or at container start.</p>
+            </section>
+
+            <section>
+                <h2>Capabilities Demos</h2>
+                <h3>With CHOWN capability</h3>
+            </section>
+            <section data-background-video="videos/demo-chown-drop.mp4" data-background-size="contain">
+            </section>
+            <section>
+                <h2>Capabilities Demos</h2>
+                <h3>With SETUID capability</h3>
+            </section>
+            <section data-background-video="videos/demo-setuid-drop.mp4" data-background-size="contain">
+            </section>
+            <section>
+                <h2>Drop capabilities in k8s</h2>
+                <pre><code class="yml" data-trim data-line-numbers="*|9-13" >
+apiVersion: v1
+kind: Pod
+metadata:
+  name: demo-pod
+spec:
+  containers:
+    - name: demo
+      image: demo
+      securityContext:
+        capabilities:
+          drop:
+            - NET_BIND_SERVICE
+            - SETUID
+						</code></pre>
+            </section>
+            <section>
+                <h2>Very dangerous capabilities</h2>
+                <p>
+                <ul>
+                    <li>CAP_SYS_ADMIN</li>
+                    <li>CAP_SYS_PTRACE</li>
+                    <li>CAP_SYS_MODULE</li>
+                    <li>CAP_DAC_READ_SEARCH</li>
+                    <li>CAP_DAC_OVERRIDE</li>
+                </ul>
+                </p>
+            </section>
+            <section>
+                <h2>Very dangerous capabilities</h2>
+                <p>
+                    Complete list on <a href="https://book.hacktricks.xyz/linux-hardening/privilege-escalation/linux-capabilities#privesc-container-escape" target="_blank" rel="noopener noreferrer">HackTricks</a>
+                    and explanation on how to exploit
+                </p>
+                <img src="images/hacktricks-container-escape.png" alt="qr-code">
+            </section>
+        </section>
+
+        <section>
+            <section>
+                <h2>Golden source</h2>
+                <p>The image you build your image from should be trustable:</p>
+                <ul>
+                    <li class="fragment">the base image is build and maintained by your organisation,</li>
+                    <li class="fragment">otherwise, the base image is tagged as official in Docker Hub, Quay, ...</li>
+                </ul>
+            </section>
+            <section>
+                <h2>Images <span style="color: darkred">must</span> contain only the strict minimum</h2>
+                <p>Images should contain only the strict minimum to allow the application to run.</p>
+            </section>
+            <section>
+                <h2>Images <span style="color: darkred">must</span> contain only the strict minimum</h2>
+                <p>For example:</p>
+                <ul>
+                    <li>No shell/bash,</li>
+                    <li>No package manager,</li>
+                    <li>No compiler (GCC, JDK...),</li>
+                    <li>...</li>
+                    <li>No any other tool not required by the application.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h3>Multi-Stage builds and Distroless example</h3>
+                <pre><code class="docker stretch" data-trim data-line-numbers="*|1,6,7" >
+FROM maven:3.6.1-jdk-11-slim as BUILDER
+WORKDIR /app
+COPY . /app/
+RUN mvn -T4 package -DskipTests
+
+FROM gcr.io/distroless/java:11
+COPY --from=BUILDER /app/target/app.jar /app.jar
+USER 1000
+ENTRYPOINT ["java", "-server", "-jar", "/app.jar"]
+						</code></pre>
+            </section>
+            <section>
+                <h3>Minimalist images</h3>
+                <ul>
+                    <li><a href="https://github.com/GoogleContainerTools/distroless" target="_blank" rel="noopener noreferrer">Distroless</a></li>
+                    <li><a href="https://www.chainguard.dev/" target="_blank" rel="noopener noreferrer">Chainguard</a></li>
+                </ul>
+            </section>
+        </section>
+
+        <section>
+            <section>
+                <h2>Container <span style="color:darkred">must</span> be read-only</h2>
+                <p>Containers should be run read-only.</p>
+                <p>Only necessary read-write mounted volume will be writable: ideally none!</p>
+            </section>
+
+            <section data-background-video="videos/demo-readonly.mp4" data-background-size="contain">
+            </section>
+            <section>
+                <h3>Container <span style="color:darkred">must</span> be read-only</h3>
+                <p>The Kubernetes equivalent option is readOnlyRootFilesystem, for example:</p>
+                <pre><code class="stretch yaml" data-line-numbers="*|9,10,14" >apiVersion: v1
+kind: Pod
+metadata:
+	name: volume-test
+spec:
+	containers:
+	- name: container-test
+	image: busybox
+	securityContext:
+		readOnlyRootFilesystem: true
+	volumeMounts:
+	- name: all-in-one
+		mountPath: "/projected-volume"
+		readOnly: true
+					</code></pre>
+            </section>
+        </section>
+
+        <section>
+            <h2>Secret <span style="color:darkred">must not</span> be embedded in image</h2>
+            <p>No secret in image!</p>
+            <p class="fragment">Never</p>
+            <p class="fragment">No exception</p>
+        </section>
+
+        <section>
+            <h2>Enforce policies in k8s</h2>
+            <p>Use tools to enforce policies in your clusters, like <a href="https://open-policy-agent.github.io/gatekeeper/website/">Gatekeeper</a>.</p>
+            <p><img src="images/logo-gatekeeper.svg" alt="Gatekeeper logo" style="border:0" width="100"/></p>
+            <img src="images/gatekeeper-qrcode.png" alt="Gatekeeper" style="border:0"/>
+        </section>
+
+        <!-- How to work with hardened images -->
+        <section id="howto-work">
+            <h2>How the hell can I work with such hardened images?</h2>
+            <img src="images/whats-inside.gif" alt="What's inside" style="border:0"/>
+        </section>
+
+        <section>
+            <h2>What are containers?</h2>
+            <p>Containers are process "executed" by the host kernel, using chroot, namespace, and cgroups to provide isolation and resource limits.</p>
+        </section>
+
+        <section>
+            <section>
+                <h2>Image file system</h2>
+                <img src="images/Multilayer%20image.png" alt="Container layers" style="border:0" width="750"/>
+            </section>
+            <section>
+                <h2>Image file system</h2>
+                <img src="images/dockerfile_and_layers.png" alt="Dockerfile and Container layers" style="border:0"/>
+            </section>
+
+            <section>
+                <h2>Dive demo</h2>
+            </section>
+
+            <section data-background-video="videos/dive-demo.mp4" data-background-size="contain">
+
+            </section>
+        </section>
+
+        <section>
+            <section>
+                <h2>Namespaces</h2>
+                <p>Namespaces are a feature of the Linux kernel that partitions kernel resources. Processes that share the same namespace can see each other resources given the kind of the namespace.</p>
+            </section>
+
+            <section>
+                <h2>Namespaces</h2>
+                <p>Namespace kind list:</p>
+                <ul>
+                    <li class="fragment">Process ID (PID)</li>
+                    <li class="fragment">Network</li>
+                    <li class="fragment">Mount</li>
+                    <li class="fragment">Interprocess Communication (IPC)</li>
+                    <li class="fragment">Unix Time Sharing (UTS)</li>
+                    <li class="fragment">User ID (UID)</li>
+                    <li class="fragment">Control Group (cgroup)</li>
+                </ul>
+            </section>
+        </section>
+
+        <section>
+            <section>
+                <h3>Container Isolation</h3>
+                <img src="./images/ns-containers.png" alt="container isolation" width="310" style="float: right;border: 0; background: transparent;">
+                <p style="width: 60%;">By default, when a Docker container starts, it starts with his own namespaces, assuring isolation from host</p>
+            </section>
+            <section>
+                <h3>Container Isolation</h3>
+                <p>Docker offers the possibility to join other container or host namespaces.</p>
+            </section>
+            <section>
+                <h3>Demo</h3>
+                <p>Let's join a container network/pid namespace</p>
+            </section>
+            <section data-background-video="videos/demo-debug-pid-network.mp4" data-background-size="contain">
+            </section>
+            <section>
+                <h3>These options are available with Docker compose</h3>
+                <pre><code class="stretch yaml" data-line-numbers="*|13,14">version: '3.7'
+
+services:
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./oauth2-proxy-keycloak.cfg:/oauth2-proxy.cfg
+
+  myapp:
+    image: containous/whoami
+    network_mode: service:oauth2-proxy
+    pid: service:oauth2-proxy</code></pre>
+            </section>
+        </section>
+
+        <section>
+            <section>
+                <h3>Pod Isolation</h3>
+                <p>Pods (atomic unit of Kubernetes deployment) can contain one or more containers.</p>
+                <img src="./images/ns-pods.png" style="border: 0; background: transparent;" height="272" alt="namespace's pod">
+            </section>
+            <section>
+                <h3>Pod PID namespace</h3>
+                <p>You can share PID namespace between pod containers:</p>
+                <pre><code class="stretch yaml" data-line-numbers="*|6">apiVersion: v1
+kind: Pod
+metadata:
+    name: my-app
+spec:
+    shareProcessNamespace: true
+    containers:
+        - name: my-app
+          image: my-app-image:12
+        - name: my-other-app
+          image: my-other-app-image:14
+                </code></pre>
+            </section>
+            <section>
+                <h3>Ephemeral container</h3>
+                <p>Stable feature since Kubernetes 1.25</p>
+                <pre><code class="stretch json">
+kubectl debug -it --image my-debugging-toolbox \
+        my-pod-XXXXXXXXX [--target my-container]
+                </code></pre>
+            </section>
+            <section>
+                <h3>Pod Isolation</h3>
+                <p>Demo: Playing with pid & network namespace</p>
+            </section>
+            <section data-background-video="videos/demo-debug-pod.mp4" data-background-size="contain">
+            </section>
+        </section>
+
+        <!-- Patch management -->
+        <section id="patch-management">
+            <section>
+                <h2>Patch management: why and what for?</h2>
+            </section>
+
+            <section>
+                <h2>Patch management: purpose</h2>
+                <ul>
+                    <li>Avoid known vulnerabilities in third party applications on servers</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Patch management: how to?</h2>
+                <ul>
+                    <li>Patch as frequently as possible</li>
+                    <li>Know the exact state of the patch management on your server pool at any moment</li>
+                </ul>
+            </section>
+
+            <section id="container-patch-management">
+                <h2>Container & Patch Management</h2>
+            </section>
+
+            <section>
+                <h2>So...?</h2>
+                <ul>
+                    <li>Update dependencies in your image (and rebuild it...)</li>
+                    <li>Deploy often</li>
+                    <li>Scan your images regularly</li>
+                </ul>
+            </section>
+        </section>
+
+        <!-- Tool overview -->
+        <section id="some-tools">
+            <section>
+                <h3>Let's see some tools...</h3>
+                <p>...that can help you out</p>
+            </section>
+
+            <section>
+                <h2>Dependency scanner</h2>
+                <p>80% of your code is not made by your team. Use scanner to detect known vulnerabilities in your
+                    dependencies.</p>
+                <p>For example: Dependabot, Checkmarx SCA, Trivy, J-Frog X-Ray, Renovate...</p>
+            </section>
+
+            <section>
+                <h2>Trivy</h2>
+                <div class="left">
+                    <ul>
+                        <li>Generate SBOM</li>
+                        <li>Find Known vulnerabilities</li>
+                        <li>Find IaC issues/misconfigurations</li>
+                        <li>Sensitive information and secrets</li>
+                        <li>Find problematic licenses</li>
+                    </ul>
+                </div>
+                <div class="right">
+                    <img src="images/trivy-logo.png" alt="Trivy logo" style="border:0" width="100"/>
+                </div>
+            </section>
+
+            <section>
+                <h2>Copacetic</h2>
+                <p>Directly patch container image vulnerabilities.<br>Useful for unmaintained images.</p>
+                <p><img src="images/copa-color.png" alt="Copacetic logo" style="border:0" width="100"/></p>
+                <img src="images/copacetic-qrcode.png" alt="Copacetic" style="border:0"/>
+            </section>
+
+            <section>
+                <h2>NeuVector</h2>
+                <div class="left">
+                    <ul>
+                        <li>WAF</li>
+                        <li>DLP</li>
+                        <li>Image CVE scanner</li>
+                        <li>Policies</li>
+                        <li>Sigstore</li>
+                    </ul>
+                </div>
+                <div class="right">
+                    <img src="images/neuvector-logo.png" alt="Neuvector logo" style="border:0; background-color:white " width="250"/>
+                </div>
+            </section>
+        </section>
+
+        <section>
+            <section>
+                <h2>k8s network isolation</h2>
+                <p>No isolation at all by default !!!</p>
+                <p>Use network policies</p>
+            </section>
+            <section>
+                <h2>k8s network isolation</h2>
+                <pre><code class="stretch yaml" data-line-numbers="*|10-17">apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-network-policy
+  namespace: my-namespace
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: grafana-agent-ns
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-controller-ns
+                </code></pre>
+            </section>
+        </section>
+
+
+
+        <section>
+            <h2>Takeaway</h2>
+            <ul>
+                <li class="fragment">Container must not run as root,</li>
+                <li class="fragment">Container should have the strictly minimum capabilities,</li>
+                <li class="fragment">Build minimalist images,</li>
+                <li class="fragment">Run container read-only,</li>
+                <li class="fragment">No secret in images,</li>
+                <li class="fragment">Monitor and update your dependencies,</li>
+                <li class="fragment">Deploy often,</li>
+                <li class="fragment">Don't forget k8s network policies.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h1>Any questions?</h1>
+        </section>
+
+        <section>
+            <h2>Thank you for your attention</h2>
+            <a href="https://iwdrm.tumblr.com/">
+                <img src="images/thx.gif" style="border: 0" alt="Thank you">
+            </a>
+        </section>
+    </div>
+</div>
+
+<script src="dist/reveal.js"></script>
+<script src="plugin/notes/notes.js"></script>
+<script src="plugin/markdown/markdown.js"></script>
+<script src="plugin/highlight/highlight.js"></script>
+
+<script>
+    // More info about config & dependencies:
+    // - https://github.com/hakimel/reveal.js#configuration
+    // - https://github.com/hakimel/reveal.js#dependencies
+    Reveal.initialize({
+        transition: 'fade',
+        hash: 'true',
+        plugins: [RevealMarkdown, RevealHighlight, RevealNotes],
+    });
+
+    Reveal.configure({ slideNumber: 'c/t' });
+</script>
+</body>
+
+</html>
