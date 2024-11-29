@@ -191,13 +191,13 @@ spec:
             <section>
                 <h3>Multi-Stage builds and Distroless example</h3>
                 <pre><code class="docker stretch" data-trim data-line-numbers="*|1,6,7" >
-FROM maven:3.6.1-jdk-11-slim as BUILDER
+FROM maven:3.6.1-jdk-11-slim AS builder
 WORKDIR /app
 COPY . /app/
 RUN mvn -T4 package -DskipTests
 
 FROM gcr.io/distroless/java:11
-COPY --from=BUILDER /app/target/app.jar /app.jar
+COPY --from=builder /app/target/app.jar /app.jar
 USER 1000
 ENTRYPOINT ["java", "-server", "-jar", "/app.jar"]
 						</code></pre>
@@ -298,9 +298,10 @@ spec:
                     <li class="fragment">Process ID (PID)</li>
                     <li class="fragment">Network</li>
                     <li class="fragment">Mount</li>
-                    <li class="fragment">Interprocess Communication (IPC)</li>
+                    <li class="fragment">Inter-Process Communication (IPC)</li>
                     <li class="fragment">Unix Time Sharing (UTS)</li>
                     <li class="fragment">User ID (UID)</li>
+                    <li class="fragment">Time</li>
                     <li class="fragment">Control Group (cgroup)</li>
                 </ul>
             </section>
